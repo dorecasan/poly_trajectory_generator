@@ -5,6 +5,6 @@ This repository contains code for generating polynomial trajectories given a set
 Launch the trajectory generation node:
 
    ```shell
-   roslaunch polynomial_trajectory_generation generate_trajectory.launch
+   roslaunch trajectory_generation traj_generator.launch
    ```
 
