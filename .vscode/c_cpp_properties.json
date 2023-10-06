@@ -1,0 +1,28 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/toannn/Robotics/Robotics/trajectoryGeneration/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/toannn/Robotics/Robotics/trajectoryGeneration/src/eigen_checks/include/**",
+        "/home/toannn/Robotics/Robotics/trajectoryGeneration/src/mav_comm/mav_msgs/include/**",
+        "/home/toannn/Robotics/Robotics/trajectoryGeneration/src/mav_comm/mav_planning_msgs/include/**",
+        "/home/toannn/Robotics/Robotics/trajectoryGeneration/src/mav_trajectory_generation/mav_trajectory_generation/include/**",
+        "/home/toannn/Robotics/Robotics/trajectoryGeneration/src/mav_trajectory_generation/mav_trajectory_generation_ros/include/**",
+        "/home/toannn/Robotics/Robotics/trajectoryGeneration/src/mav_trajectory_generation/mav_visualization/include/**",
+        "/home/toannn/Robotics/Robotics/trajectoryGeneration/src/nlopt/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

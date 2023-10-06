@@ -1,0 +1,20 @@
+<launch>
+  <!-- Launch trajectory generation node -->
+  <arg name="conti_derive" default="2"/>
+  <arg name="v_max" default="18"/>
+  <arg name="a_max" default="20"/>
+  <arg name="save_path" default="$(find trajectory_generation)/data/results.txt"/>
+  <arg name="use_rviz" default="false"/>
+
+  <node name="desired_trajectory" pkg="trajectory_generation" type="desired_trajectory" output="screen">
+    <param name="conti_derive" value="$(arg conti_derive)" type="int" />
+    <param name="v_max" value="$(arg v_max)" type="double" />
+    <param name="a_max" value="$(arg a_max)" type="double" />
+    <param name="save_path" value="$(arg save_path)" type="string" />
+  </node>
+
+  <node name="desired_pose_publisher" pkg="trajectory_generation" type="desired_pose_publisher.py" output="screen" />
+
+  <node if="$(arg use_rviz)" type="rviz" name="rviz" pkg="rviz" args="-d $(find trajectory_generation)/rviz/test.rviz"/>
+
+</launch>
