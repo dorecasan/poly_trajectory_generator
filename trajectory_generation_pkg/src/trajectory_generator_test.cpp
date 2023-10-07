@@ -2,6 +2,7 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseArray.h>
 #include <mav_trajectory_generation/polynomial_optimization_linear.h>
+#include <mav_trajectory_generation/polynomial_optimization_nonlinear.h>
 #include <mav_trajectory_generation/trajectory.h>
 #include <mav_trajectory_generation_ros/ros_visualization.h>
 #include <nav_msgs/Odometry.h>
@@ -29,26 +30,41 @@ private:
   ros::Publisher markerPub_;
   ros::Publisher currentPath_;
   Eigen::Vector2d position_ = Eigen::Vector2d::Zero(); 
-
+  Eigen::Vector2d initial_velocity_; 
+  Eigen::Vector2d initial_acceleration_; 
   ros::Timer desiredStateTimer_;
   ros::Timer desiredPathTimer_;
 
   ros::Time trajectoryStartTime_;
   mav_trajectory_generation::Trajectory trajectory_;
+  mav_trajectory_generation::Segment::Vector segments_;
   std::vector<double> segment_times_ ;
 
   int D_;
-  double v_max_;
-  double a_max_;
+  int derivative_to_optimize_;
+  double vx_max_;
+  double ax_max_;
+  double vx0_;
+  double vy0_;
+  bool use_nonlinear_solver_;
+  
   std::string save_path_;
+
+  // const int derivative_to_optimize = mav_trajectory_generation::derivative_order::SNAP;
 
 public:
   WaypointFollower(): nh_("~") {
 
-    nh_.param<int>("conti_derive",D_,2);
-    nh_.param<double>("v_max",v_max_,20.0);
-    nh_.param<double>("a_max",a_max_,20.0);
+    nh_.param<int>("dimensions",D_,2);
+    nh_.param<int>("conti_derive",derivative_to_optimize_,2);
+    nh_.param<double>("v_max",vx_max_,20.0);
+    nh_.param<double>("a_max",ax_max_,10.0);
+    nh_.param<double>("vx0",vx0_,15.0);
+    nh_.param<double>("vy0",vy0_,0.0);
+    nh_.param<bool>("use_nonlinear_solver",use_nonlinear_solver_,false);
     nh_.param<std::string>("save_path",save_path_,"results.txt");
+
+    ROS_INFO("vmax: %f, amax: %f, vx0: %f, vy0: %f, use_nonlinear_solver: %s",vx_max_,ax_max_,vx0_,vy0_,use_nonlinear_solver_ ? "true":"false");
 
     poseArraySub_ =
         nh_.subscribe("/desired_poses", 1,
@@ -83,14 +99,13 @@ public:
 
     mav_trajectory_generation::Vertex start_position(D_), end_position(D_);
     mav_trajectory_generation::Vertex::Vector vertices;
-    // const int derivative_to_optimize = mav_trajectory_generation::derivative_order::SNAP;
-    const int derivative_to_optimize = 2;
-
 
     position_ << poseArray.poses[0].position.x , poseArray.poses[0].position.y;
+    initial_velocity_ << vx0_ , vy0_;
     
     using namespace mav_trajectory_generation::derivative_order;
-    start_position.makeStartOrEnd(position_, derivative_to_optimize);
+    start_position.makeStartOrEnd(position_, derivative_to_optimize_);
+    start_position.addConstraint(VELOCITY, initial_velocity_);
     vertices.push_back(start_position);
     int n = poseArray.poses.size();
     Eigen::Vector2d last_vertex;
@@ -105,19 +120,34 @@ public:
     }
     
     last_vertex << poseArray.poses[n-1].position.x, poseArray.poses[n-1].position.y;
-    end_position.makeStartOrEnd(last_vertex, derivative_to_optimize);
+    end_position.makeStartOrEnd(last_vertex, derivative_to_optimize_);
     vertices.push_back(end_position);
     
-    segment_times_ = estimateSegmentTimes(vertices, v_max_, a_max_);
+    segment_times_ = estimateSegmentTimes(vertices, vx_max_, ax_max_);
   
-
-    mav_trajectory_generation::PolynomialOptimization<N_> opt(D_);
-    opt.setupFromVertices(vertices, segment_times_, derivative_to_optimize);
-    opt.solveLinear();
-
-    mav_trajectory_generation::Segment::Vector segments;
-    //        opt.getSegments(&segments); // Unnecessary?
-    opt.getTrajectory(&trajectory_);
+    if (!use_nonlinear_solver_){
+      mav_trajectory_generation::PolynomialOptimization<N_> opt(D_);
+      opt.setupFromVertices(vertices, segment_times_, derivative_to_optimize_);
+      opt.solveLinear();
+      opt.getSegments(&segments_); 
+      opt.getTrajectory(&trajectory_);
+    }
+    else{
+      mav_trajectory_generation::NonlinearOptimizationParameters parameters;
+      parameters.max_iterations = 1000;
+      parameters.f_rel = 0.05;
+      parameters.x_rel = 0.1;
+      parameters.time_penalty = 1000.0;
+      parameters.initial_stepsize_rel = 0.1;
+      parameters.inequality_constraint_tolerance = 0.1;
+      mav_trajectory_generation::PolynomialOptimizationNonLinear<N_> opt(D_, parameters);
+      opt.setupFromVertices(vertices, segment_times_, derivative_to_optimize_);
+      opt.addMaximumMagnitudeConstraint(mav_trajectory_generation::derivative_order::VELOCITY, vx_max_);                                
+      opt.addMaximumMagnitudeConstraint(mav_trajectory_generation::derivative_order::ACCELERATION, ax_max_);
+      opt.optimize();
+      opt.getPolynomialOptimizationRef().getSegments(&segments_);
+      opt.getTrajectory(&trajectory_);
+    }
     trajectoryStartTime_ = ros::Time::now();
 
     writeSegmentParamsToFile(save_path_);
@@ -128,19 +158,16 @@ public:
   void writeSegmentParamsToFile(std::string file_name){
     
     std::ofstream out(file_name);
-    
-    mav_trajectory_generation::Segment::Vector* segments = new mav_trajectory_generation::Segment::Vector;
-    
-    trajectory_.getSegments(segments);
+
     segment_times_  = trajectory_.getSegmentTimes();
     
-    out << "Total: " <<segments->size() <<" segments"<< std::endl;
+    out << "Total: " <<segments_.size() <<" segments"<< std::endl;
     out << "Segment times: " << "["; 
     for (auto t: segment_times_){
       out << t <<" ";
     }
     out <<"]"<< std::endl;
-    out << *segments;
+    out << segments_;
 
   }
   

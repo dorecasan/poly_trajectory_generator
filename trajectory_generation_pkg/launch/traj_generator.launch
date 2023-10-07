@@ -1,16 +1,24 @@
 <launch>
   <!-- Launch trajectory generation node -->
+  <arg name="dimensions" default="2"/>
   <arg name="conti_derive" default="2"/>
-  <arg name="v_max" default="18"/>
-  <arg name="a_max" default="20"/>
+  <arg name="v_max" default="20"/>
+  <arg name="a_max" default="10"/>
+  <arg name="vx0" default="15"/>
+  <arg name="vy0" default="0"/>
+  <arg name="use_nonlinear_solver" default="true"/>
   <arg name="save_path" default="$(find trajectory_generation)/data/results.txt"/>
-  <arg name="use_rviz" default="false"/>
+  <arg name="use_rviz" default="true"/>
 
   <node name="desired_trajectory" pkg="trajectory_generation" type="desired_trajectory" output="screen">
+    <param name="dimensions" value="$(arg dimensions)" type="int" /> 
     <param name="conti_derive" value="$(arg conti_derive)" type="int" />
     <param name="v_max" value="$(arg v_max)" type="double" />
     <param name="a_max" value="$(arg a_max)" type="double" />
+    <param name="vx0" value="$(arg vx0)" type="double" />
+    <param name="vy0" value="$(arg vy0)" type="double" />
     <param name="save_path" value="$(arg save_path)" type="string" />
+    <param name="use_nonlinear_solver" value="$(arg use_nonlinear_solver)" type="bool"/>
   </node>
 
   <node name="desired_pose_publisher" pkg="trajectory_generation" type="desired_pose_publisher.py" output="screen" />
